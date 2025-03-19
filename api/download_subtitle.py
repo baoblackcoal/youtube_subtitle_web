@@ -1,13 +1,10 @@
-from flask import Flask, request, Response, jsonify
+from http.server import BaseHTTPRequestHandler
 import yt_dlp
 import os
 import tempfile
 import re
 import json
 import urllib.parse
-from http.server import BaseHTTPRequestHandler
-
-app = Flask(__name__)
 
 # Function to extract video ID from URL
 def extract_video_id(url):
@@ -108,81 +105,53 @@ def download_subtitle(video_url, subtitle_type='auto', format='txt'):
         except Exception as e:
             return None, None, str(e)
 
-@app.route('/api/download-subtitle', methods=['POST'])
-def flask_handler():
-    """Handler function for Flask application."""
-    try:
-        # Get request JSON data
-        data = request.get_json()
+# 确保handler类名是小写的，并且继承自BaseHTTPRequestHandler
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        """处理POST请求下载字幕"""
+        try:
+            # 读取请求体
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body) if body else {}
+            
+            # 提取参数
+            video_url = data.get('videoUrl', '')
+            subtitle_type = data.get('subtitleType', 'auto')
+            format_type = data.get('format', 'txt')
+            
+            # 下载字幕
+            content, filename, mime_type = download_subtitle(video_url, subtitle_type, format_type)
+            
+            if content:
+                # 发送成功响应
+                self.send_response(200)
+                self.send_header('Content-Type', mime_type)
+                self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+                self.end_headers()
+                
+                # 发送字幕内容
+                if isinstance(content, str):
+                    self.wfile.write(content.encode('utf-8'))
+                else:
+                    self.wfile.write(content)
+            else:
+                # 发送错误响应
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': '下载字幕失败'}).encode('utf-8'))
         
-        # Extract parameters
-        video_url = data.get('videoUrl', '')
-        subtitle_type = data.get('subtitleType', 'auto')
-        format_type = data.get('format', 'txt')
-        
-        # Download subtitles
-        content, filename, mime_type = download_subtitle(video_url, subtitle_type, format_type)
-        
-        if content:
-            # Create response with the subtitle content
-            response = Response(content, mimetype=mime_type)
-            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-            return response
-        else:
-            return jsonify({'error': f'Failed to download subtitles: {mime_type}'}), 500
+        except Exception as e:
+            # 处理异常
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
     
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# Vercel serverless handler function
-def handler(event, context):
-    """Handler function for Vercel serverless function."""
-    try:
-        # Parse request data
-        method = event.get('method', 'GET')
-        if method != 'POST':
-            return {
-                'statusCode': 405,
-                'body': json.dumps({'error': 'Only POST method is accepted'}),
-                'headers': {'Content-Type': 'application/json'}
-            }
-        
-        # Get the request body
-        body = event.get('body', '{}')
-        if isinstance(body, str):
-            body = json.loads(body)
-        
-        # Extract parameters
-        video_url = body.get('videoUrl', '')
-        subtitle_type = body.get('subtitleType', 'auto')
-        format_type = body.get('format', 'txt')
-        
-        # Download subtitles
-        content, filename, mime_type = download_subtitle(video_url, subtitle_type, format_type)
-        
-        if content:
-            # Create response with the subtitle content
-            return {
-                'statusCode': 200,
-                'body': content if isinstance(content, str) else content,
-                'headers': {
-                    'Content-Type': mime_type,
-                    'Content-Disposition': f'attachment; filename="{filename}"'
-                },
-                'isBase64Encoded': False
-            }
-        else:
-            return {
-                'statusCode': 500,
-                'body': json.dumps({'error': f'Failed to download subtitles: {mime_type}'}),
-                'headers': {'Content-Type': 'application/json'},
-                'isBase64Encoded': False
-            }
-    
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': str(e)}),
-            'headers': {'Content-Type': 'application/json'},
-            'isBase64Encoded': False
-        } 
+    def do_GET(self):
+        """处理GET请求（健康检查）"""
+        self.send_response(405)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({'error': '只接受POST请求'}).encode('utf-8')) 

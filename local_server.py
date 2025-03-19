@@ -1,7 +1,14 @@
 from flask import Flask, request, send_from_directory, Response, jsonify
 import os
 import datetime
+import json
+import io
 import sys
+from urllib.parse import parse_qs
+
+# 导入我们的字幕下载模块
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from api.download_subtitle import download_subtitle
 
 app = Flask(__name__)
 
@@ -26,9 +33,29 @@ def ip_query(path):
 
 @app.route('/api/download-subtitle', methods=['POST'])
 def download_subtitle_api():
-    # Import the flask_handler function from download_subtitle.py
-    from api.download_subtitle import flask_handler
-    return flask_handler()
+    """本地Flask实现的字幕下载API"""
+    try:
+        # 获取请求JSON数据
+        data = request.get_json()
+        
+        # 提取参数
+        video_url = data.get('videoUrl', '')
+        subtitle_type = data.get('subtitleType', 'auto')
+        format_type = data.get('format', 'txt')
+        
+        # 下载字幕
+        content, filename, mime_type = download_subtitle(video_url, subtitle_type, format_type)
+        
+        if content:
+            # 创建带有字幕内容的响应
+            response = Response(content, mimetype=mime_type)
+            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            return jsonify({'error': f'下载字幕失败'}), 500
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/<path:path>')
 def api_catch_all(path):
