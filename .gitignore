@@ -1,2 +1,53 @@
 .vercel
 api/__pycache__/
+
+Sarcasm with GPT-4o \[GiEsyOyk1m4].en.txt
+Sarcasm with GPT-4o \[GiEsyOyk1m4].en.vtt
+
+output
+steps/step1_download/output
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Distribution / packaging
+.egg-info/
+dist/
+build/
+htmlcov/
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*~
+*.swp
+*.swo
+
+# Databases
+*.sqlite
+*.db
+
+# macOS
+.DS_Store
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Secret files. Never commit these!
+secrets.ini
+config.ini
+*.json #if containing secrets
