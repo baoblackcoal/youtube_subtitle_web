@@ -6,7 +6,7 @@ app = Flask(__name__)
 def catch_all(path):
     print(request.args)
     key = request.args.get('key')
-    return Response("<h1>Flask</h1><p>You visited: /%s</p><p>key=%s</p>" % (path,key), mimetype="text/html")
+    return Response("<h1>Flask</h1><p>0You visited: /%s</p><p>key=%s</p>" % (path,key), mimetype="text/html")
 
     
 if __name__ == "__main__":
