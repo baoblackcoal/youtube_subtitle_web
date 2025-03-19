@@ -26,9 +26,9 @@ def ip_query(path):
 
 @app.route('/api/download-subtitle', methods=['POST'])
 def download_subtitle_api():
-    # Import the handler function from download_subtitle.py
-    from api.download_subtitle import handler
-    return handler()
+    # Import the flask_handler function from download_subtitle.py
+    from api.download_subtitle import flask_handler
+    return flask_handler()
 
 @app.route('/api/<path:path>')
 def api_catch_all(path):

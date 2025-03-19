@@ -5,6 +5,7 @@ import tempfile
 import re
 import json
 import urllib.parse
+from http.server import BaseHTTPRequestHandler
 
 app = Flask(__name__)
 
@@ -108,8 +109,8 @@ def download_subtitle(video_url, subtitle_type='auto', format='txt'):
             return None, None, str(e)
 
 @app.route('/api/download-subtitle', methods=['POST'])
-def handler():
-    """Handler function for Vercel serverless function."""
+def flask_handler():
+    """Handler function for Flask application."""
     try:
         # Get request JSON data
         data = request.get_json()
@@ -131,4 +132,57 @@ def handler():
             return jsonify({'error': f'Failed to download subtitles: {mime_type}'}), 500
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
+
+# Vercel serverless handler function
+def handler(event, context):
+    """Handler function for Vercel serverless function."""
+    try:
+        # Parse request data
+        method = event.get('method', 'GET')
+        if method != 'POST':
+            return {
+                'statusCode': 405,
+                'body': json.dumps({'error': 'Only POST method is accepted'}),
+                'headers': {'Content-Type': 'application/json'}
+            }
+        
+        # Get the request body
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            body = json.loads(body)
+        
+        # Extract parameters
+        video_url = body.get('videoUrl', '')
+        subtitle_type = body.get('subtitleType', 'auto')
+        format_type = body.get('format', 'txt')
+        
+        # Download subtitles
+        content, filename, mime_type = download_subtitle(video_url, subtitle_type, format_type)
+        
+        if content:
+            # Create response with the subtitle content
+            return {
+                'statusCode': 200,
+                'body': content if isinstance(content, str) else content,
+                'headers': {
+                    'Content-Type': mime_type,
+                    'Content-Disposition': f'attachment; filename="{filename}"'
+                },
+                'isBase64Encoded': False
+            }
+        else:
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'error': f'Failed to download subtitles: {mime_type}'}),
+                'headers': {'Content-Type': 'application/json'},
+                'isBase64Encoded': False
+            }
+    
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': str(e)}),
+            'headers': {'Content-Type': 'application/json'},
+            'isBase64Encoded': False
+        } 
