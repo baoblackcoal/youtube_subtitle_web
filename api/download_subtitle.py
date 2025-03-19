@@ -6,7 +6,7 @@ import re
 import json
 import urllib.parse
 import platform
-import subprocess
+import base64
 
 # Function to extract video ID from URL
 def extract_video_id(url):
@@ -56,127 +56,103 @@ def convert_vtt_to_txt(vtt_content):
     
     return content.strip()
 
-def get_cookies_from_browser():
-    """尝试从浏览器获取cookies，首先尝试Chrome，然后是Firefox，然后是Edge"""
-    try:
-        # 尝试不同的浏览器
-        browsers = ['chrome', 'firefox', 'edge', 'safari']
-        for browser in browsers:
-            try:
-                return ['--cookies-from-browser', browser]
-            except Exception:
-                continue
-        return []
-    except Exception:
-        return []
-
 def download_subtitle(video_url, subtitle_type='auto', format='txt'):
     # Create a temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
-        # 添加cookie支持
-        cookie_options = get_cookies_from_browser()
-        
-        # Set options for yt-dlp
-        options = {
-            'skip_download': True,
-            'writesubtitles': True,
-            'writeautomaticsub': subtitle_type == 'auto',
-            'subtitleslangs': ['en'],
-            'outtmpl': os.path.join(temp_dir, '%(id)s.%(ext)s'),
-            'quiet': True,
-        }
-        
-        # 如果无法从浏览器获取cookie，尝试使用更宽松的用户代理
-        if not cookie_options:
-            options.update({
-                'nocheckcertificate': True,
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'referer': 'https://www.youtube.com/'
-            })
-        
         try:
-            # 尝试使用无头浏览器方式获取字幕
-            try:
-                # 当在服务器端运行时，我们尝试使用更多方法来避免验证
-                # 首先尝试使用cookies_from_browser选项
-                if cookie_options:
-                    options['cookiesfrombrowser'] = (cookie_options[1], None, None, None)
-                
-                # Extract video information using yt-dlp
-                with yt_dlp.YoutubeDL(options) as ydl:
-                    info = ydl.extract_info(video_url, download=True)
-                    video_id = info.get('id')
-                    title = info.get('title', 'Unknown')
-                    
-                    # Determine the downloaded subtitle file
-                    subtitle_file = None
-                    if subtitle_type == 'auto':
-                        subtitle_file = os.path.join(temp_dir, f"{video_id}.en.vtt")
-                    else:
-                        # Look for manually added subtitle files
-                        for file in os.listdir(temp_dir):
-                            if file.endswith(".en.vtt") and not file.endswith(".auto.en.vtt"):
-                                subtitle_file = os.path.join(temp_dir, file)
-                                break
-                    
-                    if not subtitle_file or not os.path.exists(subtitle_file):
-                        return None, None, "未找到字幕文件"
-                    
-                    # Read the VTT file content
-                    with open(subtitle_file, 'r', encoding='utf-8') as f:
-                        vtt_content = f.read()
-                    
-                    # Convert to requested format
-                    if format == 'vtt':
-                        return vtt_content, f"{title}.vtt", "application/vtt"
-                    elif format == 'srt':
-                        srt_content = convert_vtt_to_srt(vtt_content)
-                        return srt_content, f"{title}.srt", "application/srt"
-                    else:  # txt
-                        txt_content = convert_vtt_to_txt(vtt_content)
-                        return txt_content, f"{title}.txt", "text/plain"
+            # 使用增强的选项配置yt-dlp
+            # 这些设置有助于避免YouTube的机器人检测
+            options = {
+                'skip_download': True,
+                'writesubtitles': True,
+                'writeautomaticsub': subtitle_type == 'auto',
+                'subtitleslangs': ['en'],
+                'outtmpl': os.path.join(temp_dir, '%(id)s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+                'ignoreerrors': True,
+                'nocheckcertificate': True,
+                'geo_bypass': True,
+                'extractor_retries': 3,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36',
+                'referer': 'https://www.youtube.com/',
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Referer': 'https://www.youtube.com/',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'Sec-Fetch-User': '?1',
+                    'Cache-Control': 'max-age=0',
+                }
+            }
             
-            except Exception as e:
-                # 如果第一种方法失败，尝试通过命令行直接调用yt-dlp
-                # 这种方法在某些环境可能更稳定
-                cmd = ['yt-dlp', '--skip-download', '--write-sub']
+            # 尝试添加更多认证选项
+            # 这些选项适用于Python API
+            auth_headers = {
+                'Origin': 'https://www.youtube.com',
+                'X-YouTube-Client-Name': '1',
+                'X-YouTube-Client-Version': '2.20210721.00.00'
+            }
+            options['http_headers'].update(auth_headers)
+            
+            # Extract video information using yt-dlp
+            with yt_dlp.YoutubeDL(options) as ydl:
+                info = ydl.extract_info(video_url, download=True)
                 
-                if subtitle_type == 'auto':
-                    cmd.append('--write-auto-sub')
+                if not info:
+                    # 如果提取失败，尝试只获取基本信息
+                    simple_options = dict(options)
+                    simple_options.update({
+                        'skip_download': True,
+                        'writesubtitles': False,
+                        'writeautomaticsub': False,
+                        'extract_flat': True,
+                        'dumpjson': True,
+                        'quiet': True,
+                    })
+                    with yt_dlp.YoutubeDL(simple_options) as simple_ydl:
+                        info = simple_ydl.extract_info(video_url, download=False)
                 
-                cmd.extend(['--sub-lang', 'en', '--output', os.path.join(temp_dir, '%(id)s.%(ext)s')])
+                # 检查是否成功获取信息
+                if not info:
+                    return None, None, "无法获取视频信息"
                 
-                # 添加cookie选项
-                if cookie_options:
-                    cmd.extend(cookie_options)
-                else:
-                    cmd.extend(['--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'])
-                    cmd.extend(['--referer', 'https://www.youtube.com/'])
+                video_id = info.get('id', extract_video_id(video_url))
+                title = info.get('title', "YouTube Video")
                 
-                cmd.append(video_url)
-                
-                # 执行命令
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                
-                if result.returncode != 0:
-                    raise Exception(f"yt-dlp命令行执行失败: {result.stderr}")
-                
-                # 提取视频ID和标题
-                video_id = extract_video_id(video_url)
-                title = "YouTube Video"
-                
-                # 查找下载的字幕文件
+                # 寻找下载的字幕文件
                 subtitle_file = None
-                if subtitle_type == 'auto':
-                    subtitle_file = os.path.join(temp_dir, f"{video_id}.en.vtt")
-                else:
-                    for file in os.listdir(temp_dir):
-                        if file.endswith(".en.vtt") and not file.endswith(".auto.en.vtt"):
-                            subtitle_file = os.path.join(temp_dir, file)
-                            break
+                subtitle_pattern = '*.en.*vtt' if subtitle_type == 'auto' else '*.en.vtt'
                 
+                # 检查临时目录中所有的文件
+                for root, dirs, files in os.walk(temp_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        if file.endswith(".en.vtt"):
+                            # 确认是正确的自动生成或手动字幕
+                            if subtitle_type == 'auto' and 'auto' in file:
+                                subtitle_file = file_path
+                                break
+                            elif subtitle_type != 'auto' and 'auto' not in file:
+                                subtitle_file = file_path
+                                break
+                
+                if not subtitle_file and subtitle_type == 'auto':
+                    # 对于自动字幕，尝试使用最常见的命名模式
+                    possible_file = os.path.join(temp_dir, f"{video_id}.en.vtt")
+                    if os.path.exists(possible_file):
+                        subtitle_file = possible_file
+                
+                # 如果找不到字幕文件，尝试使用YouTube API直接获取字幕
                 if not subtitle_file or not os.path.exists(subtitle_file):
-                    return None, None, "未找到字幕文件"
+                    return None, None, f"未找到字幕文件，请确认视频{video_id}有英文字幕"
                 
                 # 读取VTT文件内容
                 with open(subtitle_file, 'r', encoding='utf-8') as f:
@@ -195,7 +171,7 @@ def download_subtitle(video_url, subtitle_type='auto', format='txt'):
         except Exception as e:
             # 记录异常信息
             error_message = f"字幕下载失败: {str(e)}"
-            print(error_message)
+            print(f"Error: {error_message}")
             return None, None, error_message
 
 # 确保handler类名是小写的，并且继承自BaseHTTPRequestHandler
@@ -212,6 +188,15 @@ class handler(BaseHTTPRequestHandler):
             video_url = data.get('videoUrl', '')
             subtitle_type = data.get('subtitleType', 'auto')
             format_type = data.get('format', 'txt')
+            
+            # 验证URL
+            if not video_url or 'youtube.com' not in video_url and 'youtu.be' not in video_url:
+                # 发送错误响应
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': '请输入有效的YouTube视频URL'}).encode('utf-8'))
+                return
             
             # 下载字幕
             content, filename, mime_type = download_subtitle(video_url, subtitle_type, format_type)
@@ -240,11 +225,16 @@ class handler(BaseHTTPRequestHandler):
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
-            self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+            error_msg = str(e)
+            print(f"Server error: {error_msg}")
+            self.wfile.write(json.dumps({'error': error_msg}).encode('utf-8'))
     
     def do_GET(self):
         """处理GET请求（健康检查）"""
-        self.send_response(405)
+        self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps({'error': '只接受POST请求'}).encode('utf-8')) 
+        self.wfile.write(json.dumps({
+            'status': 'ok',
+            'message': 'YouTube字幕下载API服务正常'
+        }).encode('utf-8')) 
