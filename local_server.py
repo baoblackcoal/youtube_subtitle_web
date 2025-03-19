@@ -1,6 +1,7 @@
 from flask import Flask, request, send_from_directory, Response, jsonify
 import os
 import datetime
+from api.download_subtitle import handle_download_subtitle_request
 
 app = Flask(__name__)
 
@@ -22,6 +23,10 @@ def ip_query(path):
         "ip": request.remote_addr,
         "path": request.path
     })
+
+@app.route('/api/download-subtitle', methods=['POST'])
+def download_subtitle_api():
+    return handle_download_subtitle_request()
 
 @app.route('/api/<path:path>')
 def api_catch_all(path):

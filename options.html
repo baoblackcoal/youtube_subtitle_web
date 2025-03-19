@@ -4,21 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube 字幕下载器</title>
-    <link rel="stylesheet" href="assets/styles.css">
+    <link rel="stylesheet" href="../assets/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="assets/images/logo48.png" alt="YouTube 字幕下载器" onerror="this.style.display='none'">
+                <img src="../assets/images/logo48.png" alt="YouTube 字幕下载器">
                 <h1>YouTube 字幕下载器</h1>
             </div>
         </div>
         
         <div class="content">
             <div class="input-group">
-                <input type="text" id="videoUrl" placeholder="输入 YouTube 视频链接" value="">
+                <input type="text" id="videoUrl" placeholder="输入 YouTube 视频链接" value="https://www.youtube.com/watch?v=oc6RV5c1yd0">
                 <div class="button-group">
                     <button id="getSubtitles" class="primary">下载字幕</button>
                     <button id="pasteAndGet" class="secondary">粘贴并下载</button>
@@ -60,18 +60,11 @@
                     <li>支持下载 YouTube 自动生成的英文字幕和手动添加的英文字幕</li>
                     <li>提供多种字幕格式选择（VTT, SRT 和 TXT）</li>
                     <li>支持一键粘贴视频链接</li>
-                    <li>基于 yt-dlp 高效下载字幕</li>
-                </ul>
-            </div>
-            
-            <div class="features">
-                <h2>API 示例</h2>
-                <ul>
-                    <li><a href="/api/date">日期 API 示例</a></li>
+                    <li>点击工具栏中的扩展图标, 视频链接会自动填充到输入框中（如果当前标签页是 YouTube 视频）</li>
                 </ul>
             </div>
         </div>
     </div>
-    <script src="assets/app.js"></script>
+    <script type="module" src="../options.js"></script>
 </body>
-</html>
+</html> 
