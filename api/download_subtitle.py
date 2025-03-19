@@ -1,10 +1,12 @@
-from flask import request, jsonify, Response, send_file
+from flask import Flask, request, Response, jsonify
 import yt_dlp
 import os
 import tempfile
 import re
 import json
 import urllib.parse
+
+app = Flask(__name__)
 
 # Function to extract video ID from URL
 def extract_video_id(url):
@@ -105,29 +107,28 @@ def download_subtitle(video_url, subtitle_type='auto', format='txt'):
         except Exception as e:
             return None, None, str(e)
 
-def handle_download_subtitle_request():
-    if request.method == 'POST':
-        try:
-            # Get request JSON data
-            data = request.get_json()
-            
-            # Extract parameters
-            video_url = data.get('videoUrl', '')
-            subtitle_type = data.get('subtitleType', 'auto')
-            format_type = data.get('format', 'txt')
-            
-            # Download subtitles
-            content, filename, mime_type = download_subtitle(video_url, subtitle_type, format_type)
-            
-            if content:
-                # Create response with the subtitle content
-                response = Response(content, mimetype=mime_type)
-                response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-                return response
-            else:
-                return jsonify({'error': f'Failed to download subtitles: {mime_type}'}), 500
+@app.route('/api/download-subtitle', methods=['POST'])
+def handler():
+    """Handler function for Vercel serverless function."""
+    try:
+        # Get request JSON data
+        data = request.get_json()
         
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+        # Extract parameters
+        video_url = data.get('videoUrl', '')
+        subtitle_type = data.get('subtitleType', 'auto')
+        format_type = data.get('format', 'txt')
+        
+        # Download subtitles
+        content, filename, mime_type = download_subtitle(video_url, subtitle_type, format_type)
+        
+        if content:
+            # Create response with the subtitle content
+            response = Response(content, mimetype=mime_type)
+            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            return jsonify({'error': f'Failed to download subtitles: {mime_type}'}), 500
     
-    return jsonify({'error': 'Only POST method is accepted'}), 405 
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 
