@@ -117,6 +117,7 @@ def download_subtitle(video_url, subtitle_type='auto', format='txt'):
                         'extract_flat': True,
                         'dumpjson': True,
                         'quiet': True,
+                        'cookiesfrombrowser': 'chrome'
                     })
                     with yt_dlp.YoutubeDL(simple_options) as simple_ydl:
                         info = simple_ydl.extract_info(video_url, download=False)
